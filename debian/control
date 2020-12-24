@@ -1,48 +1,43 @@
 Source: liburing
 Section: libs
 Priority: optional
-Maintainer: Liu Changcheng <changcheng.liu@intel.com>
-Build-Depends: debhelper (>=9)
-Standards-Version: 4.1.4
-Homepage: https://git.kernel.dk/cgit/liburing/tree/README
-Vcs-Git: https://git.kernel.dk/liburing
-Vcs-Browser: https://git.kernel.dk/cgit/liburing/
+Maintainer: Guillem Jover <guillem@debian.org>
+Vcs-Browser: https://git.hadrons.org/cgit/debian/pkgs/liburing.git
+Vcs-Git: https://git.hadrons.org/git/debian/pkgs/liburing.git
+Homepage: https://github.com/axboe/liburing
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ procps <!nocheck>,
 
 Package: liburing1
 Architecture: linux-any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: userspace library for using io_uring
- io_uring is kernel feature to improve development
- The newese Linux IO interface, io_uring could improve
- system performance a lot. liburing is the userpace
- library to use io_uring feature.
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Linux kernel io_uring access library - shared library
+ This library provides helpers to setup and teardown io_uring instances,
+ and also a simplified interface for applications that do not need (or
+ want) to deal with the full kernel side implementation.
  .
  This package contains the shared library.
-
-Package: liburing1-udeb
-Package-Type: udeb
-Section: debian-installer
-Architecture: linux-any
-Depends: ${misc:Depends}, ${shlibs:Depends},
-Description: userspace library for using io_uring
- io_uring is kernel feature to improve development
- The newese Linux IO interface, io_uring could improve
- system performance a lot. liburing is the userpace
- library to use io_uring feature.
- .
- This package contains the udeb shared library.
 
 Package: liburing-dev
 Section: libdevel
 Architecture: linux-any
 Multi-Arch: same
-Depends: ${misc:Depends}, liburing1 (= ${binary:Version}),
-Description: userspace library for using io_uring
- io_uring is kernel feature to improve development
- The newese Linux IO interface, io_uring could improve
- system performance a lot. liburing is the userpace
- library to use io_uring feature.
+Depends:
+ ${misc:Depends},
+ liburing1 (= ${binary:Version}),
+ libc6-dev | libc-dev,
+ linux-libc-dev (>= 5.1),
+Description: Linux kernel io_uring access library - development files
+ This library provides helpers to setup and teardown io_uring instances,
+ and also a simplified interface for applications that do not need (or
+ want) to deal with the full kernel side implementation.
  .
  This package contains the static library and the header files.

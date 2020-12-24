@@ -1,20 +1,44 @@
-liburing (0.4-2) stable; urgency=low
+liburing (0.7-3) unstable; urgency=medium
 
-  * Fix /usr/lib/*/liburing.so symlink to /lib/*/liburing.so.1.0.4
+  * Switch to Standards-Version 4.5.1 (no changes needed).
+  * Add new debian/upstream/metadata file.
 
- -- Stefan Metzmacher <metze@samba.org>  Fri, 07 Feb 2020 15:30:00 +0100
+ -- Guillem Jover <guillem@debian.org>  Thu, 24 Dec 2020 18:11:40 +0100
 
-liburing (0.4-1) stable; urgency=low
+liburing (0.7-2) unstable; urgency=medium
 
-  * Package liburing-0.4 using a packaging layout similar to libaio1
+  * Bump the minimum version for all symbols in the symbols file, to
+    workaround that 0.7 upstream version unintentionally broke the ABI
+    without bumping the SONAME. (Closes: #972758)
 
- -- Stefan Metzmacher <metze@samba.org>  Thu, 06 Feb 2020 11:30:00 +0100
+ -- Guillem Jover <guillem@debian.org>  Wed, 28 Oct 2020 10:35:07 +0100
 
-liburing (0.2-1ubuntu1) stable; urgency=low
+liburing (0.7-1) unstable; urgency=medium
 
-  * Initial release.
-  * commit 4bce856d43ab1f9a64477aa5a8f9f02f53e64b74
-  *	 Author: Jens Axboe <axboe@kernel.dk>
-  *	 Date:   Mon Nov 11 16:00:58 2019 -0700
+  * New upstream version.
+  * Refactor debian/tests/test-build into two loops to avoid repetition.
+  * Use link-cp instead of io_uring-cp as example command to test.
+    Reported by Christian Ehrhardt <christian.ehrhardt@canonical.com>.
 
- -- Liu Changcheng <changcheng.liu@aliyun.com>  Fri, 15 Nov 2019 00:06:46 +0800
+ -- Guillem Jover <guillem@debian.org>  Wed, 09 Sep 2020 04:26:54 +0200
+
+liburing (0.6-3) unstable; urgency=medium
+
+  * Add dependencies on libc6-dev | libc-dev and linux-libc-dev (>= 5.1)
+    to liburing-dev. (Closes: #959182)
+  * Replace mmap patch with upstream one.
+
+ -- Guillem Jover <guillem@debian.org>  Fri, 01 May 2020 05:05:09 +0200
+
+liburing (0.6-2) unstable; urgency=medium
+
+  * Fix build failures on armhf and armel, by using __NR_mmap2 when __NR_mmap
+    is not defined, which is fine, because the unit tests pass 0 as offset.
+
+ -- Guillem Jover <guillem@debian.org>  Wed, 22 Apr 2020 01:30:19 +0200
+
+liburing (0.6-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #950903)
+
+ -- Guillem Jover <guillem@debian.org>  Fri, 17 Apr 2020 21:25:25 +0200
