@@ -1,3 +1,9 @@
+liburing (0.7-3pexip1) pexip; urgency=medium
+
+  * Prepare Pexip packaging
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Wed, 20 Jul 2022 17:12:37 +0100
+
 liburing (0.7-3) unstable; urgency=medium
 
   * Switch to Standards-Version 4.5.1 (no changes needed).

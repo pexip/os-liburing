@@ -1,7 +1,8 @@
 Source: liburing
 Section: libs
 Priority: optional
-Maintainer: Guillem Jover <guillem@debian.org>
+Maintainer: Pexip AS <packaging@pexip.com>
+XSBC-Pexip-Original-Maintainer: Guillem Jover <guillem@debian.org>
 Vcs-Browser: https://git.hadrons.org/cgit/debian/pkgs/liburing.git
 Vcs-Git: https://git.hadrons.org/git/debian/pkgs/liburing.git
 Homepage: https://github.com/axboe/liburing
@@ -10,6 +11,7 @@ Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
  procps <!nocheck>,
+XS-Pexip-Upstream: http://ftp.debian.org/debian/ bullseye
 
 Package: liburing1
 Architecture: linux-any
