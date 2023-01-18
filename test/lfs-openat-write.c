@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 #define _LARGEFILE_SOURCE
 #define _FILE_OFFSET_BITS 64
 
@@ -11,6 +13,8 @@
 #include <errno.h>
 #include <sys/resource.h>
 #include <unistd.h>
+
+#include "helpers.h"
 
 static const int RSIZE = 2;
 static const int OPEN_FLAGS = O_RDWR | O_CREAT;
@@ -98,7 +102,7 @@ int main(int argc, char *argv[])
 	int dfd, ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	dfd = open("/tmp", O_RDONLY | O_DIRECTORY);
 	if (dfd < 0)

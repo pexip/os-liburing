@@ -26,7 +26,7 @@ struct io_data {
 };
 
 static int infd, outfd;
-static unsigned inflight;
+static int inflight;
 
 static int setup_context(unsigned entries, struct io_uring *ring)
 {
@@ -95,10 +95,10 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	if (cqe->res < 0) {
 		if (cqe->res == -ECANCELED) {
-			queue_rw_pair(ring, BS, data->offset);
+			queue_rw_pair(ring, data->iov.iov_len, data->offset);
 			inflight += 2;
 		} else {
-			printf("cqe error: %s\n", strerror(cqe->res));
+			printf("cqe error: %s\n", strerror(-cqe->res));
 			ret = 1;
 		}
 	}
@@ -115,7 +115,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 static int copy_file(struct io_uring *ring, off_t insize)
 {
 	struct io_uring_cqe *cqe;
-	size_t this_size;
+	off_t this_size;
 	off_t offset;
 
 	offset = 0;
@@ -145,7 +145,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 
 			ret = io_uring_wait_cqe(ring, &cqe);
 			if (ret < 0) {
-				printf("wait cqe: %s\n", strerror(ret));
+				printf("wait cqe: %s\n", strerror(-ret));
 				return 1;
 			}
 			if (handle_cqe(ring, cqe))

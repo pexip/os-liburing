@@ -1,3 +1,86 @@
+liburing (2.3-3) unstable; urgency=medium
+
+  * Switch to Standards-Version 4.6.2 (no changes needed).
+  * Do not trim debian/changelog.
+  * Update copyright years.
+  * Make globs in debhelper fragment files more specific.
+  * Switch from hardening=+bindnow to hardening=+all.
+  * Update debian/patches metadata.
+
+ -- Guillem Jover <guillem@debian.org>  Wed, 18 Jan 2023 03:15:54 +0100
+
+liburing (2.3-2) unstable; urgency=medium
+
+  * Artificially bump symbol versions to 2.3 for functions involved in a
+    forward compatibility ABI break, for objects built against the new
+    library and run-time linked against the old one, until upstream decides
+    how to fix/improve this. Closes: #1023654
+
+ -- Guillem Jover <guillem@debian.org>  Mon, 14 Nov 2022 00:15:08 +0100
+
+liburing (2.3-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove 0001-Fix-typos.patch, merged upstream.
+    - Remove 0002-Fix-typos.patch, ditto.
+    - Remove 0003-man-Add-missing-section-numbers.patch, ditto.
+    - Remove 0004-man-Lowercase-man-page-name-in-title-header.patch, ditto.
+    - Remove tests-skip.patch, no longer needed.
+  * Remove lintian-override false-positive, fixed in lintian.
+  * Add patch fixing typos in man pages.
+
+ -- Guillem Jover <guillem@debian.org>  Sat, 05 Nov 2022 00:14:14 +0100
+
+liburing (2.2-2) unstable; urgency=medium
+
+  * Pass build flags explicitly to dh_auto_build. This will override the
+    variables set explicitly by upstream.
+  * Add missing License field to test/* stanza in debian/copyright.
+  * Documentation cleanup:
+    - Fix typos in man pages and test cases.
+    - Add missing section numbers to man pages.
+    - Lowercase man page title headers.
+  * Add missing patch metadata.
+  * Enable LFS build options. This should be ABI safe as the shared library
+    does not export symbols with problematic type, the only problematic types
+    are exposed as part of «static inline» functions from the header file.
+
+ -- Guillem Jover <guillem@debian.org>  Thu, 18 Aug 2022 12:04:48 +0200
+
+liburing (2.2-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove 0001-test-Use-syscall-wrappers-instead-of-using-syscall-2.patch,
+      included upstream.
+  * Switch to Standards-Version 4.6.1 (no changes needed).
+
+ -- Guillem Jover <guillem@debian.org>  Fri, 01 Jul 2022 12:38:56 +0200
+
+liburing (2.1-2) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Switch to Standards-Version 4.6.0 (no changes needed).
+  * Make globs in debhelper fragment files more specific to avoid them
+    missing filename changes or including unintended files.
+
+ -- Guillem Jover <guillem@debian.org>  Sat, 13 Nov 2021 02:07:31 +0100
+
+liburing (2.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Add patch to fix build failures on any-arm due to direct syscall(2) use.
+
+ -- Guillem Jover <guillem@debian.org>  Thu, 16 Sep 2021 04:02:01 +0200
+
+liburing (2.0-1) experimental; urgency=medium
+
+  * New upstream version.
+    - Bump shared library SONAME to liburing2.
+    - Install man pages from section 3 and 7.
+  * Add patch to skip tests that require root.
+
+ -- Guillem Jover <guillem@debian.org>  Thu, 09 Sep 2021 03:29:04 +0200
+
 liburing (0.7-3) unstable; urgency=medium
 
   * Switch to Standards-Version 4.5.1 (no changes needed).

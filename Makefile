@@ -1,7 +1,5 @@
-NAME=liburing
-SPECFILE=$(NAME).spec
-VERSION=$(shell awk '/Version:/ { print $$2 }' $(SPECFILE))
-TAG = $(NAME)-$(VERSION)
+include Makefile.common
+
 RPMBUILD=$(shell `which rpmbuild >&/dev/null` && echo "rpmbuild" || echo "rpm")
 
 INSTALL=install
@@ -13,13 +11,18 @@ all:
 	@$(MAKE) -C test
 	@$(MAKE) -C examples
 
+.PHONY: all install default clean test
+.PHONY: FORCE cscope
+
 partcheck: all
 	@echo "make partcheck => TODO add tests with out kernel support"
 
 runtests: all
 	@$(MAKE) -C test runtests
-runtests-loop:
+runtests-loop: all
 	@$(MAKE) -C test runtests-loop
+runtests-parallel: all
+	@$(MAKE) -C test runtests-parallel
 
 config-host.mak: configure
 	@if [ ! -e "$@" ]; then					\
@@ -51,6 +54,10 @@ install: $(NAME).pc
 	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME).pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
+	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man3
+	$(INSTALL) -m 644 man/*.3 $(DESTDIR)$(mandir)/man3
+	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man7
+	$(INSTALL) -m 644 man/*.7 $(DESTDIR)$(mandir)/man7
 
 install-tests:
 	@$(MAKE) -C test install prefix=$(DESTDIR)$(prefix) datadir=$(DESTDIR)$(datadir)

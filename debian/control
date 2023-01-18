@@ -5,13 +5,14 @@ Maintainer: Guillem Jover <guillem@debian.org>
 Vcs-Browser: https://git.hadrons.org/cgit/debian/pkgs/liburing.git
 Vcs-Git: https://git.hadrons.org/git/debian/pkgs/liburing.git
 Homepage: https://github.com/axboe/liburing
-Standards-Version: 4.5.1
+Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
+ debhelper (>= 13.10),
  procps <!nocheck>,
 
-Package: liburing1
+Package: liburing2
 Architecture: linux-any
 Multi-Arch: same
 Pre-Depends:
@@ -32,7 +33,7 @@ Architecture: linux-any
 Multi-Arch: same
 Depends:
  ${misc:Depends},
- liburing1 (= ${binary:Version}),
+ liburing2 (= ${binary:Version}),
  libc6-dev | libc-dev,
  linux-libc-dev (>= 5.1),
 Description: Linux kernel io_uring access library - development files
