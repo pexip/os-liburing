@@ -11,7 +11,7 @@ Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
  procps <!nocheck>,
-XS-Pexip-Upstream: http://ftp.debian.org/debian/ bullseye
+XS-Pexip-Upstream: http://deb.debian.org/debian/ bookworm
 
 Package: liburing1
 Architecture: linux-any
