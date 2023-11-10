@@ -11,7 +11,9 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <arpa/inet.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -42,24 +44,25 @@ struct data {
 	unsigned expected[2];
 	unsigned is_mask[2];
 	unsigned long timeout;
-	int port;
+	unsigned short port;
+	unsigned int addr;
 	int stop;
 };
 
 static void *send_thread(void *arg)
 {
+	struct sockaddr_in addr;
 	struct data *data = arg;
+	int s0;
 
 	wait_for_var(&recv_thread_ready);
 
-	int s0 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	s0 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s0 != -1);
-
-	struct sockaddr_in addr;
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = data->port;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_addr.s_addr = data->addr;
 
 	if (connect(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)
 		wait_for_var(&recv_thread_done);
@@ -70,42 +73,38 @@ static void *send_thread(void *arg)
 
 void *recv_thread(void *arg)
 {
+	struct sockaddr_in addr = { };
 	struct data *data = arg;
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
-	int i;
+	int i, ret;
 
-	assert(io_uring_queue_init(8, &ring, 0) == 0);
+	ret = io_uring_queue_init(8, &ring, 0);
+	assert(ret == 0);
 
 	int s0 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s0 != -1);
 
 	int32_t val = 1;
-        assert(setsockopt(s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
-        assert(setsockopt(s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
-
-	struct sockaddr_in addr;
+	ret = setsockopt(s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
+	assert(ret != -1);
+	ret = setsockopt(s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+	assert(ret != -1);
 
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	data->addr = inet_addr("127.0.0.1");
+	addr.sin_addr.s_addr = data->addr;
 
-	i = 0;
-	do {
-		data->port = 1025 + (rand() % 64510);
-		addr.sin_port = data->port;
-
-		if (bind(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)
-			break;
-	} while (++i < 100);
-
-	if (i >= 100) {
-		fprintf(stderr, "Can't find good port, skipped\n");
+	if (t_bind_ephemeral_port(s0, &addr)) {
+		perror("bind");
 		data->stop = 1;
 		signal_var(&recv_thread_ready);
-		goto out;
+		goto err;
 	}
+	data->port = addr.sin_port;
 
-        assert(listen(s0, 128) != -1);
+	ret = listen(s0, 128);
+	assert(ret != -1);
 
 	signal_var(&recv_thread_ready);
 
@@ -125,7 +124,8 @@ void *recv_thread(void *arg)
 	io_uring_prep_link_timeout(sqe, &ts, 0);
 	sqe->user_data = 2;
 
-	assert(io_uring_submit(&ring) == 2);
+	ret = io_uring_submit(&ring);
+	assert(ret == 2);
 
 	for (i = 0; i < 2; i++) {
 		struct io_uring_cqe *cqe;
@@ -137,20 +137,19 @@ void *recv_thread(void *arg)
 		}
 		idx = cqe->user_data - 1;
 		if (data->is_mask[idx] && !(data->expected[idx] & cqe->res)) {
-			fprintf(stderr, "cqe %llu got %x, wanted mask %x\n",
-					cqe->user_data, cqe->res,
+			fprintf(stderr, "cqe %" PRIu64 " got %x, wanted mask %x\n",
+					(uint64_t) cqe->user_data, cqe->res,
 					data->expected[idx]);
 			goto err;
 		} else if (!data->is_mask[idx] && cqe->res != data->expected[idx]) {
-			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
-					cqe->user_data, cqe->res,
+			fprintf(stderr, "cqe %" PRIu64 " got %d, wanted %d\n",
+					(uint64_t) cqe->user_data, cqe->res,
 					data->expected[idx]);
 			goto err;
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-out:
 	signal_var(&recv_thread_done);
 	close(s0);
 	io_uring_queue_exit(&ring);

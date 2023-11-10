@@ -1,6 +1,8 @@
-CFLAGS ?= -g -O2
-XCFLAGS =
-override CFLAGS += -Wall -D_GNU_SOURCE -L../src/ -I../src/include/
+CPPFLAGS ?=
+override CPPFLAGS += -D_GNU_SOURCE -I../src/include/
+CFLAGS ?= -g -O2 -Wall
+LDFLAGS ?=
+override LDFLAGS += -L../src/ -luring
 
 include ../Makefile.quiet
 
@@ -8,16 +10,32 @@ ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
 endif
 
-all_targets += io_uring-test io_uring-cp link-cp ucontext-cp
+example_srcs := \
+	io_uring-cp.c \
+	io_uring-test.c \
+	io_uring-udp.c \
+	link-cp.c \
+	poll-bench.c \
+	send-zerocopy.c
 
-all: $(all_targets)
+all_targets :=
 
-test_srcs := io_uring-test.c io_uring-cp.c link-cp.c
 
-test_objs := $(patsubst %.c,%.ol,$(test_srcs))
+ifdef CONFIG_HAVE_UCONTEXT
+	example_srcs += ucontext-cp.c
+endif
+all_targets += ucontext-cp
 
-%: %.c
-	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+example_targets := $(patsubst %.c,%,$(patsubst %.cc,%,$(example_srcs)))
+all_targets += $(example_targets)
+
+
+all: $(example_targets)
+
+%: %.c ../src/liburing.a
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
-	@rm -f $(all_targets) $(test_objs)
+	@rm -f $(all_targets)
+
+.PHONY: all clean

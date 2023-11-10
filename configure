@@ -1,19 +1,12 @@
 #!/bin/sh
-#
-# set temporary file name
-if test ! -z "$TMPDIR" ; then
-    TMPDIR1="${TMPDIR}"
-elif test ! -z "$TEMPDIR" ; then
-    TMPDIR1="${TEMPDIR}"
-else
-    TMPDIR1="/tmp"
-fi
+
+set -e
 
 cc=${CC:-gcc}
 cxx=${CXX:-g++}
 
 for opt do
-  optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
+  optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)' || true)
   case "$opt" in
   --help|-h) show_help=yes
   ;;
@@ -32,6 +25,8 @@ for opt do
   --cc=*) cc="$optarg"
   ;;
   --cxx=*) cxx="$optarg"
+  ;;
+  --nolibc) liburing_nolibc="yes"
   ;;
   *)
     echo "ERROR: unknown option $opt"
@@ -78,18 +73,25 @@ Options: [defaults in brackets after descriptions]
   --libdevdir=PATH         install development libraries in PATH [$libdevdir]
   --mandir=PATH            install man pages in PATH [$mandir]
   --datadir=PATH           install shared data in PATH [$datadir]
+  --cc=CMD                 use CMD as the C compiler
+  --cxx=CMD                use CMD as the C++ compiler
+  --nolibc                 build liburing without libc
 EOF
 exit 0
 fi
 
-TMPC="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.c"
-TMPC2="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}-2.c"
-TMPO="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.o"
-TMPE="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.exe"
+TMP_DIRECTORY="$(mktemp -d)"
+TMPC="$TMP_DIRECTORY/liburing-conf.c"
+TMPC2="$TMP_DIRECTORY/liburing-conf-2.c"
+TMPCXX="$TMP_DIRECTORY/liburing-conf-2.cpp"
+TMPO="$TMP_DIRECTORY/liburing-conf.o"
+TMPE="$TMP_DIRECTORY/liburing-conf.exe"
+
+touch $TMPC $TMPC2 $TMPCXX $TMPO $TMPE
 
 # NB: do not call "exit" in the trap handler; this is buggy with some shells;
 # see <1285349658-3122-1-git-send-email-loic.minier@linaro.org>
-trap "rm -f $TMPC $TMPC2 $TMPO $TMPE" EXIT INT QUIT TERM
+trap "rm -rf $TMP_DIRECTORY" EXIT INT QUIT TERM
 
 rm -rf config.log
 
@@ -172,7 +174,7 @@ compile_prog_cxx() {
   local_cflags="$1"
   local_ldflags="$2 $LIBS"
   echo "Compiling test case $3" >> config.log
-  do_cxx $CFLAGS $local_cflags -o $TMPE $TMPC $LDFLAGS $local_ldflags
+  do_cxx $CFLAGS $local_cflags -o $TMPE $TMPCXX $LDFLAGS $local_ldflags
 }
 
 has() {
@@ -199,6 +201,37 @@ print_and_output_mak "libdevdir" "$libdevdir"
 print_and_output_mak "relativelibdir" "$relativelibdir"
 print_and_output_mak "mandir" "$mandir"
 print_and_output_mak "datadir" "$datadir"
+
+##########################################
+# check for compiler -Wstringop-overflow
+stringop_overflow="no"
+cat > $TMPC << EOF
+#include <linux/fs.h>
+int main(int argc, char **argv)
+{
+  return 0;
+}
+EOF
+if compile_prog "-Werror -Wstringop-overflow=0" "" "stringop_overflow"; then
+  stringop_overflow="yes"
+fi
+print_config "stringop_overflow" "$stringop_overflow"
+
+##########################################
+# check for compiler -Warryr-bounds
+array_bounds="no"
+cat > $TMPC << EOF
+#include <linux/fs.h>
+int main(int argc, char **argv)
+{
+  return 0;
+}
+EOF
+if compile_prog "-Werror -Warray-bounds=0" "" "array_bounds"; then
+  array_bounds="yes"
+fi
+print_config "array_bounds" "$array_bounds"
+
 
 ##########################################
 # check for __kernel_rwf_t
@@ -241,9 +274,9 @@ print_config "__kernel_timespec" "$__kernel_timespec"
 open_how="no"
 cat > $TMPC << EOF
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <linux/openat2.h>
 int main(int argc, char **argv)
 {
   struct open_how how;
@@ -267,7 +300,6 @@ cat > $TMPC << EOF
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <linux/stat.h>
 int main(int argc, char **argv)
 {
   struct statx x;
@@ -281,9 +313,30 @@ fi
 print_config "statx" "$statx"
 
 ##########################################
+# check for glibc statx
+glibc_statx="no"
+cat > $TMPC << EOF
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <sys/stat.h>
+int main(int argc, char **argv)
+{
+  struct statx x;
+
+  return memset(&x, 0, sizeof(x)) != NULL;
+}
+EOF
+if compile_prog "" "" "glibc_statx"; then
+  glibc_statx="yes"
+fi
+print_config "glibc_statx" "$glibc_statx"
+
+##########################################
 # check for C++
 has_cxx="no"
-cat > $TMPC << EOF
+cat > $TMPCXX << EOF
 #include <iostream>
 int main(int argc, char **argv)
 {
@@ -296,7 +349,48 @@ if compile_prog_cxx "" "" "C++"; then
 fi
 print_config "C++" "$has_cxx"
 
+##########################################
+# check for ucontext support
+has_ucontext="no"
+cat > $TMPC << EOF
+#include <ucontext.h>
+int main(int argc, char **argv)
+{
+  ucontext_t ctx;
+  getcontext(&ctx);
+  makecontext(&ctx, 0, 0);
+  return 0;
+}
+EOF
+if compile_prog "" "" "has_ucontext"; then
+  has_ucontext="yes"
+fi
+print_config "has_ucontext" "$has_ucontext"
+
+##########################################
+# Check NVME_URING_CMD support
+nvme_uring_cmd="no"
+cat > $TMPC << EOF
+#include <linux/nvme_ioctl.h>
+int main(void)
+{
+  struct nvme_uring_cmd *cmd;
+
+  return sizeof(struct nvme_uring_cmd);
+}
+EOF
+if compile_prog "" "" "nvme uring cmd"; then
+  nvme_uring_cmd="yes"
+fi
+print_config "NVMe uring command support" "$nvme_uring_cmd"
+
 #############################################################################
+if test "$liburing_nolibc" = "yes"; then
+  output_sym "CONFIG_NOLIBC"
+else
+  liburing_nolibc="no"
+fi
+print_config "liburing_nolibc" "$liburing_nolibc"
 
 if test "$__kernel_rwf_t" = "yes"; then
   output_sym "CONFIG_HAVE_KERNEL_RWF_T"
@@ -310,8 +404,23 @@ fi
 if test "$statx" = "yes"; then
   output_sym "CONFIG_HAVE_STATX"
 fi
+if test "$glibc_statx" = "yes"; then
+  output_sym "CONFIG_HAVE_GLIBC_STATX"
+fi
 if test "$has_cxx" = "yes"; then
   output_sym "CONFIG_HAVE_CXX"
+fi
+if test "$has_ucontext" = "yes"; then
+  output_sym "CONFIG_HAVE_UCONTEXT"
+fi
+if test "$stringop_overflow" = "yes"; then
+  output_sym "CONFIG_HAVE_STRINGOP_OVERFLOW"
+fi
+if test "$array_bounds" = "yes"; then
+  output_sym "CONFIG_HAVE_ARRAY_BOUNDS"
+fi
+if test "$nvme_uring_cmd" = "yes"; then
+  output_sym "CONFIG_HAVE_NVME_URING"
 fi
 
 echo "CC=$cc" >> $config_host_mak
@@ -359,6 +468,16 @@ struct open_how {
 	uint64_t	mode;
 	uint64_t	resolve;
 };
+
+EOF
+else cat >> $compat_h << EOF
+#include <linux/openat2.h>
+
+EOF
+fi
+if [ "$glibc_statx" = "no" ] && [ "$statx" = "yes" ]; then
+cat >> $compat_h << EOF
+#include <sys/stat.h>
 
 EOF
 fi

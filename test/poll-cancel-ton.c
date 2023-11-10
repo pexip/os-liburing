@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/wait.h>
-#include <sys/signal.h>
+#include <signal.h>
 
 #include "liburing.h"
 
@@ -55,7 +55,7 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 
 			sqe = io_uring_get_sqe(ring);
 			data = sqe_index[lrand48() % nr];
-			io_uring_prep_poll_remove(sqe, data);
+			io_uring_prep_poll_remove(sqe, (__u64)(uintptr_t)data);
 		}
 
 		ret = io_uring_submit(ring);
@@ -71,10 +71,10 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 
 static int add_polls(struct io_uring *ring, int fd, int nr)
 {
-	int pending, batch, i, count, ret;
+	int batch, i, count, ret;
 	struct io_uring_sqe *sqe;
 
-	pending = count = 0;
+	count = 0;
 	while (nr) {
 		batch = 1024;
 		if (batch > nr)
@@ -93,7 +93,6 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 			return 1;
 		}
 		nr -= batch;
-		pending += batch;
 		reap_events(ring, batch, 1);
 	}
 	return 0;
@@ -102,6 +101,7 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct io_uring_params p = { };
 	int pipe1[2];
 	int ret;
 
@@ -113,16 +113,21 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = io_uring_queue_init(1024, &ring, 0);
+	p.flags = IORING_SETUP_CQSIZE;
+	p.cq_entries = 16384;
+	ret = io_uring_queue_init_params(1024, &ring, &p);
 	if (ret) {
-		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		if (ret == -EINVAL) {
+			fprintf(stdout, "No CQSIZE, trying without\n");
+			ret = io_uring_queue_init(1024, &ring, 0);
+			if (ret) {
+				fprintf(stderr, "ring setup failed: %d\n", ret);
+				return 1;
+			}
+		}
 	}
 
 	add_polls(&ring, pipe1[0], 30000);
-#if 0
-	usleep(1000);
-#endif
 	del_polls(&ring, pipe1[0], 30000);
 
 	io_uring_queue_exit(&ring);
