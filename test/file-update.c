@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static void close_files(int *files, int nr_files, int add)
@@ -36,7 +37,7 @@ static int *open_files(int nr_files, int extra, int add)
 	int *files;
 	int i;
 
-	files = calloc(nr_files + extra, sizeof(int));
+	files = t_calloc(nr_files + extra, sizeof(int));
 
 	for (i = 0; i < nr_files; i++) {
 		if (!add)
@@ -107,7 +108,7 @@ static int test_sqe_update(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	int *fds, i, ret;
 
-	fds = malloc(sizeof(int) * 10);
+	fds = t_malloc(sizeof(int) * 10);
 	for (i = 0; i < 10; i++)
 		fds[i] = -1;
 
@@ -127,11 +128,62 @@ static int test_sqe_update(struct io_uring *ring)
 
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
+	free(fds);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "IORING_OP_FILES_UPDATE not supported, skipping\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 	return ret != 10;
+}
+
+static int test_update_no_table(void)
+{
+	int up_fd, fds[4] = {-1, 0, 1, 4};
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int ret;
+
+	ret = t_create_ring(2, &ring, 0);
+	if (ret == T_SETUP_SKIP)
+		return T_EXIT_SKIP;
+	else if (ret != T_SETUP_OK)
+		return ret;
+
+	ret = io_uring_register_files(&ring, fds, 4);
+	/* ignore other failures */
+	if (ret && ret != -EBADF) {
+		fprintf(stderr, "Failed registering file table: %d\n", ret);
+		goto fail;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	up_fd = ring.ring_fd;
+	io_uring_prep_files_update(sqe, &up_fd, 1, -1); //offset = -1
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "Failed submit: %d\n", ret);
+		goto fail;
+	}
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "Failed wait: %d\n", ret);
+		goto fail;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(&ring, cqe);
+	if (ret != -EMFILE && ret != -EINVAL && ret != -EOVERFLOW &&
+	    ret != -ENXIO) {
+		fprintf(stderr, "Bad cqe res: %d\n", ret);
+		goto fail;
+	}
+
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+fail:
+	io_uring_queue_exit(&ring);
+	return T_EXIT_FAIL;
 }
 
 int main(int argc, char *argv[])
@@ -140,7 +192,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	if (io_uring_queue_init(8, &r1, 0) ||
 	    io_uring_queue_init(8, &r2, 0) ||
@@ -163,9 +215,17 @@ int main(int argc, char *argv[])
 
 	ret = test_sqe_update(&r1);
 	if (ret) {
-		fprintf(stderr, "test_sqe_update failed\n");
+		if (ret != T_EXIT_SKIP)
+			fprintf(stderr, "test_sqe_update failed\n");
 		return ret;
 	}
 
-	return 0;
+	ret = test_update_no_table();
+	if (ret) {
+		if (ret != T_EXIT_SKIP)
+			fprintf(stderr, "test_sqe_update failed\n");
+		return ret;
+	}
+
+	return T_EXIT_PASS;
 }

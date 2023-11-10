@@ -11,8 +11,10 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <arpa/inet.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -42,13 +44,15 @@ struct data {
 	unsigned expected[2];
 	unsigned just_positive[2];
 	unsigned long timeout;
-	int port;
+	unsigned short port;
+	unsigned int addr;
 	int stop;
 };
 
 static void *send_thread(void *arg)
 {
 	struct data *data = arg;
+	int ret;
 
 	wait_for_var(&recv_thread_ready);
 
@@ -62,9 +66,10 @@ static void *send_thread(void *arg)
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = data->port;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_addr.s_addr = data->addr;
 
-        assert(connect(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1);
+	ret = connect(s0, (struct sockaddr*)&addr, sizeof(addr));
+	assert(ret != -1);
 
 	wait_for_var(&recv_thread_done);
 
@@ -76,25 +81,29 @@ void *recv_thread(void *arg)
 {
 	struct data *data = arg;
 	struct io_uring ring;
-	int i;
+	int i, ret;
 
-	assert(io_uring_queue_init(8, &ring, 0) == 0);
+	ret = io_uring_queue_init(8, &ring, 0);
+	assert(ret == 0);
 
 	int s0 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s0 != -1);
 
 	int32_t val = 1;
-        assert(setsockopt(s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
-        assert(setsockopt(s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
+	ret = setsockopt(s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
+	assert(ret != -1);
+	ret = setsockopt(s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+	assert(ret != -1);
 
 	struct sockaddr_in addr;
 
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_family = AF_INET;
+	data->addr = inet_addr("127.0.0.1");
+	addr.sin_addr.s_addr = data->addr;
 
 	i = 0;
 	do {
-		data->port = 1025 + (rand() % 64510);
+		data->port = htons(1025 + (rand() % 64510));
 		addr.sin_port = data->port;
 
 		if (bind(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)
@@ -108,7 +117,8 @@ void *recv_thread(void *arg)
 		goto out;
 	}
 
-        assert(listen(s0, 128) != -1);
+	ret = listen(s0, 128);
+	assert(ret != -1);
 
 	signal_var(&recv_thread_ready);
 
@@ -130,7 +140,8 @@ void *recv_thread(void *arg)
 	io_uring_prep_link_timeout(sqe, &ts, 0);
 	sqe->user_data = 2;
 
-	assert(io_uring_submit(&ring) == 2);
+	ret = io_uring_submit(&ring);
+	assert(ret == 2);
 
 	for (i = 0; i < 2; i++) {
 		struct io_uring_cqe *cqe;
@@ -144,8 +155,13 @@ void *recv_thread(void *arg)
 		if (cqe->res != data->expected[idx]) {
 			if (cqe->res > 0 && data->just_positive[idx])
 				goto ok;
-			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
-					cqe->user_data, cqe->res,
+			if (cqe->res == -EBADF) {
+				fprintf(stdout, "Accept not supported, skipping\n");
+				data->stop = 1;
+				goto out;
+			}
+			fprintf(stderr, "cqe %" PRIu64 " got %d, wanted %d\n",
+					(uint64_t) cqe->user_data, cqe->res,
 					data->expected[idx]);
 			goto err;
 		}
@@ -223,17 +239,17 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 
 int main(int argc, char *argv[])
 {
-	if (argc < 1)
-		return 0;
+	if (argc > 1)
+		return T_EXIT_SKIP;
 	if (test_accept_timeout(0, 200000000)) {
 		fprintf(stderr, "accept timeout 0 failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (test_accept_timeout(1, 1000000000)) {
 		fprintf(stderr, "accept and connect timeout 0 failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

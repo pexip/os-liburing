@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -6,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define BUF_SIZE (16 * 4096)
@@ -86,12 +88,8 @@ static int init_splice_ctx(struct test_ctx *ctx)
 {
 	int ret, rnd_fd;
 
-	ctx->buf_in = calloc(BUF_SIZE, 1);
-	if (!ctx->buf_in)
-		return 1;
-	ctx->buf_out = calloc(BUF_SIZE, 1);
-	if (!ctx->buf_out)
-		return 1;
+	ctx->buf_in = t_calloc(BUF_SIZE, 1);
+	ctx->buf_out = t_calloc(BUF_SIZE, 1);
 
 	ctx->fd_in = create_file(".splice-test-in");
 	if (ctx->fd_in < 0) {
@@ -446,6 +444,7 @@ static int test_splice(struct io_uring *ring, struct test_ctx *ctx)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct io_uring_params p = { };
 	struct test_ctx ctx;
 	int ret;
 	int reg_fds[6];
@@ -453,10 +452,14 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
+	}
+	if (!(p.features & IORING_FEAT_FAST_POLL)) {
+		fprintf(stdout, "No splice support, skipping\n");
+		return 0;
 	}
 
 	ret = init_splice_ctx(&ctx);

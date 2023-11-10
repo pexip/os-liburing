@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int no_hardlink;
 
@@ -178,7 +179,7 @@ static int test_single_link_fail(struct io_uring *ring)
 		goto err;
 	}
 
-	io_uring_prep_nop(sqe);
+	io_uring_prep_remove_buffers(sqe, 10, 1);
 	sqe->flags |= IOSQE_IO_LINK;
 
 	sqe = io_uring_get_sqe(ring);
@@ -205,8 +206,8 @@ static int test_single_link_fail(struct io_uring *ring)
 			printf("failed to get cqe\n");
 			goto err;
 		}
-		if (i == 0 && cqe->res != -EINVAL) {
-			printf("sqe0 failed with %d, wanted -EINVAL\n", cqe->res);
+		if (i == 0 && cqe->res != -ENOENT) {
+			printf("sqe0 failed with %d, wanted -ENOENT\n", cqe->res);
 			goto err;
 		}
 		if (i == 1 && cqe->res != -ECANCELED) {
@@ -435,19 +436,19 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 
 	}
 
 	ret = io_uring_queue_init(8, &poll_ring, IORING_SETUP_IOPOLL);
 	if (ret) {
 		printf("poll_ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_single_link(&ring);
@@ -492,5 +493,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

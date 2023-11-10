@@ -3,7 +3,7 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-export DEB_BUILD_MAINT_OPTIONS = hardening=+bindnow
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all future=+lfs
 export DEB_CFLAGS_MAINT_PREPEND = -Wall
 
 DPKG_EXPORT_BUILDTOOLS = 1
@@ -13,6 +13,9 @@ buildflags =
 ifeq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
 	buildflags += V=1
 endif
+buildflags += CPPFLAGS="$(CPPFLAGS)"
+buildflags += CFLAGS="$(CFLAGS)"
+buildflags += LDFLAGS="$(LDFLAGS)"
 
 %:
 	dh $@
@@ -30,7 +33,10 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	dh_auto_build -- $(buildflags)
 
-# XXX: The tests do not pass yet on Linux 5.5, and they are not being
+# XXX: The tests do not pass yet on Linux 5.13, and they are not being
 # skipped either.
 override_dh_auto_test:
 	dh_auto_test -- runtests || true
+
+override_dh_installchangelogs:
+	dh_installchangelogs --no-trim

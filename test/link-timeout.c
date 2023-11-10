@@ -9,9 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int test_fail_lone_link_timeouts(struct io_uring *ring)
 {
@@ -63,7 +64,7 @@ static int test_fail_two_link_timeouts(struct io_uring *ring)
 	struct __kernel_timespec ts;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	int ret, i;
+	int ret, i, nr_wait;
 
 	ts.tv_sec = 1;
 	ts.tv_nsec = 0;
@@ -114,12 +115,13 @@ static int test_fail_two_link_timeouts(struct io_uring *ring)
 	sqe->user_data = 4;
 
 	ret = io_uring_submit(ring);
-	if (ret != 4) {
+	if (ret < 3) {
 		printf("sqe submit failed: %d\n", ret);
 		goto err;
 	}
+	nr_wait = ret;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < nr_wait; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
 			printf("wait completion %d\n", ret);
@@ -528,6 +530,8 @@ static int test_single_link_timeout(struct io_uring *ring, unsigned nsec)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -592,7 +596,7 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 		switch (cqe->user_data) {
 		case 1:
 			if (cqe->res != -EINTR && cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -600,14 +604,14 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 		case 2:
 			/* FASTPOLL kernels can cancel successfully */
 			if (cqe->res != -EALREADY && cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 3:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -617,6 +621,8 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -687,14 +693,14 @@ static int test_timeout_link_chain2(struct io_uring *ring)
 		/* poll cancel really should return -ECANCEL... */
 		case 1:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 2:
 			if (cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -702,7 +708,7 @@ static int test_timeout_link_chain2(struct io_uring *ring)
 		case 3:
 		case 4:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -711,6 +717,8 @@ static int test_timeout_link_chain2(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -805,7 +813,7 @@ static int test_timeout_link_chain3(struct io_uring *ring)
 		switch (cqe->user_data) {
 		case 2:
 			if (cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -815,14 +823,14 @@ static int test_timeout_link_chain3(struct io_uring *ring)
 		case 4:
 		case 5:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 6:
 			if (cqe->res) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -831,6 +839,8 @@ static int test_timeout_link_chain3(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -892,21 +902,21 @@ static int test_timeout_link_chain4(struct io_uring *ring)
 		/* poll cancel really should return -ECANCEL... */
 		case 1:
 			if (cqe->res) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 2:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 3:
 			if (cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -915,6 +925,8 @@ static int test_timeout_link_chain4(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -971,14 +983,16 @@ static int test_timeout_link_chain5(struct io_uring *ring)
 		}
 		switch (cqe->user_data) {
 		case 1:
-			if (cqe->res) {
-				fprintf(stderr, "Timeout got %d, wanted -EINVAL\n",
+		case 2:
+			if (cqe->res && cqe->res != -ECANCELED) {
+				fprintf(stderr, "Request got %d, wanted -EINVAL "
+						"or -ECANCELED\n",
 						cqe->res);
 				goto err;
 			}
 			break;
-		case 2:
-			if (cqe->res != -ECANCELED) {
+		case 3:
+			if (cqe->res != -ECANCELED && cqe->res != -EINVAL) {
 				fprintf(stderr, "Link timeout got %d, wanted -ECANCELED\n", cqe->res);
 				goto err;
 			}
@@ -998,12 +1012,12 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_timeout_link_chain1(&ring);
@@ -1090,5 +1104,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
