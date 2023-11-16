@@ -1,3 +1,9 @@
+liburing (2.3-3pexip1) pexip-bookworm; urgency=medium
+
+  * Initial bookworm build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 16 Nov 2023 10:08:31 +0000
+
 liburing (2.3-3) unstable; urgency=medium
 
   * Switch to Standards-Version 4.6.2 (no changes needed).
