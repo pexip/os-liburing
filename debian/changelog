@@ -1,3 +1,78 @@
+liburing (2.9-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Guillem Jover <guillem@debian.org>  Wed, 05 Feb 2025 12:13:49 +0100
+
+liburing (2.8-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove patches merged or pulled from upstream:
+      0001-Don-t-set-_GNU_SOURCE-in-pkg-config-cflags.patch
+      0001-Fix-typos.patch
+      0002-Fix-typos.patch
+
+ -- Guillem Jover <guillem@debian.org>  Sat, 26 Oct 2024 23:31:51 +0200
+
+liburing (2.7-2) unstable; urgency=medium
+
+  * Do not define _GNU_SOURCE in the .pc file Cflags. Closes: #1080419
+
+ -- Guillem Jover <guillem@debian.org>  Wed, 04 Sep 2024 00:51:39 +0200
+
+liburing (2.7-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove patches pulled from upstream:
+      0001-test-skip-test-case-if-underlying-filesystem-doesn-t.patch
+      0002-test-buf-ring-skip-on-older-kernels-that-don-t-suppo.patch
+      0003-man-fix-IORING_REGISTER_RING_FDS-docs.patch
+  * Fix typos in code and manual pages.
+
+ -- Guillem Jover <guillem@debian.org>  Tue, 27 Aug 2024 10:36:30 +0200
+
+liburing (2.6-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove 0001-man-io_uring_queue_init.3-Fix-typo.patch, merged upstream.
+    - Add patches from upstream git:
+      0001-test-skip-test-case-if-underlying-filesystem-doesn-t.patch,
+      0002-test-buf-ring-skip-on-older-kernels-that-don-t-suppo.patch
+      0003-man-fix-IORING_REGISTER_RING_FDS-docs.patch
+    - Clean test/core-coredump.t as it is an expected artifact.
+  * Switch from future=+lfs to abi=+lfs build flags feature, and Build-Depends
+    on dpkg-dev >= 1.22.0.
+  * Switch to Standards-Version 4.7.0 (no changes needed).
+
+ -- Guillem Jover <guillem@debian.org>  Sun, 05 May 2024 17:29:50 +0200
+
+liburing (2.5-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove 0001-build-Disable-stack-protector-unconditionally.patch,
+      merged upstream.
+    - Remove 0002-build-Fail-the-build-if-we-have-undefined-symbols.patch,
+      ditto.
+  * Switch back to use libc (from nolibc) after the support got restored
+    upstream with the new configure --use-libc option.
+  * Switch autopkgtest dependency from pkg-config to pkgconf.
+  * Wrap fields in debian/tests/control.
+  * Fix a typo in the manual pages.
+
+ -- Guillem Jover <guillem@debian.org>  Fri, 10 Nov 2023 02:30:36 +0100
+
+liburing (2.4-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Remove 0001-man-Fix-typos.patch, merged upstream.
+    - Add new patch to fix stack protection disabling.
+    - Add new patch to fail the build on undefined symbols.
+    - Install new liburing-ffi static and shared libraries.
+    - Install new man pages.
+  * Fix license information for a test file in debian/copyright.
+
+ -- Guillem Jover <guillem@debian.org>  Tue, 13 Jun 2023 02:50:52 +0200
+
 liburing (2.3-3+pexip24u4) pexip-bookworm; urgency=medium
 
   * New versioning scheme
