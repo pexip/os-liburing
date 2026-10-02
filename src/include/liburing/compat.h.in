@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MIT */
+#ifndef LIBURING_COMPAT_H
+#define LIBURING_COMPAT_H
+
+@KERNEL_RWF_T@
+@KERNEL_TIMESPEC@
+@OPEN_HOW@
+@STATX@
+@FUTEXV@
+@IDTYPE_T@
+@DISCARD_CMD@
+#endif
+
